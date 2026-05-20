@@ -1,14 +1,17 @@
 # HDBA-11U-Fielding-Rotation-Validator
 
-- Rayne
-- Finn
-- Mark
 - Clark
-- Jake
-- Spencer
-- Lachlan
-- Ocean
-- Thomas
-- Gray
+- Charlie
 - Bodhi
-- Cooper
+- Henry R
+- Henry O
+- Jake
+- D'Angelo
+- Everett
+- Riley
+- Ronan
+- Kirin
+- Madeline
+- Max
+- Michael
+- Alec
