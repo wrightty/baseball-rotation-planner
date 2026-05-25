@@ -102,25 +102,66 @@ export default function App() {
   }, [grid, players]);
 
   function playerStatus(player) {
-    const issues = [];
+  const issues = [];
 
-    let infield = 0;
-    let outfield = 0;
-    let pitching = [];
+  let infield = 0;
+  let outfield = 0;
 
-    for (let i = 0; i < INNINGS; i++) {
-      const pos = grid[player]?.[i];
-      if (INFIELD.includes(pos)) infield++;
-      if (OUTFIELD.includes(pos)) outfield++;
-      if (pos === "P") pitching.push(i);
+  let pitching = [];
+  let catching = 0;
+
+  for (let i = 0; i < INNINGS; i++) {
+    const pos = grid[player]?.[i];
+
+    if (INFIELD.includes(pos)) infield++;
+    if (OUTFIELD.includes(pos)) outfield++;
+
+    if (pos === "P") pitching.push(i);
+    if (pos === "C") catching++;
+  }
+
+  // ---- FIELDING COVERAGE ----
+  if (infield === 0) issues.push("No IF");
+  if (outfield === 0) issues.push("No OF");
+
+  // ---- CATCHER RULE ----
+  if (catching > 2) {
+    issues.push("Catch limit");
+  }
+
+  // ---- PITCHING RULES ----
+  if (pitching.length > 0) {
+    const sorted = [...pitching].sort((a, b) => a - b);
+
+    // max 2 innings
+    if (sorted.length > 2) {
+      issues.push("Pitch > 2 innings");
     }
 
-    if (infield === 0) issues.push("No IF");
-    if (outfield === 0) issues.push("No OF");
-    if (pitching.length > 2) issues.push("Pitch issue");
+    // must be consecutive if 2 innings
+    if (sorted.length === 2 && sorted[1] !== sorted[0] + 1) {
+      issues.push("Pitch not consecutive");
+    }
 
-    return issues;
+    // must sit before or after pitching (unless last inning exception)
+    const hasSitBefore = sorted.some(i =>
+      grid[player]?.[i - 1] === "Bench"
+    );
+
+    const hasSitAfter = sorted.some(i =>
+      grid[player]?.[i + 1] === "Bench"
+    );
+
+    const lastPitch = sorted[sorted.length - 1];
+    const isLastInning = lastPitch === INNINGS - 1;
+
+    if (!hasSitBefore && !hasSitAfter && !isLastInning) {
+      issues.push("Pitch violation");
+    }
   }
+
+  return issues;
+}
 
   function inningSummary(i) {
   let pitcher = "-";
@@ -174,6 +215,7 @@ export default function App() {
                   <th key={i}>Inning {i + 1}</th>
                 ))}
                 <th>Status</th>
+                <th>Bench</th>
               </tr>
             </thead>
 
@@ -202,11 +244,23 @@ export default function App() {
                   })}
 
                   <td>
-                    {playerStatus(p).length === 0
-                      ? "✅"
-                      : "⚠️ " + playerStatus(p).join(", ")
-                    }
-                  </td>
+  {(() => {
+    const issues = playerStatus(p);
+
+    if (issues.length === 0) return "✅";
+
+    const priority =
+      issues.includes("Pitch violation")
+        ? "⚠️ Pitch violation"
+        : "⚠️ " + issues.join(", ");
+
+    return priority;
+  })()}
+</td>
+
+<td style={{ textAlign: "center" }}>
+  {benchCount(p)}
+</td>
                 </tr>
               ))}
 
