@@ -39,6 +39,17 @@ export default function App() {
     copy[player][inning] = value;
     setGrid(copy);
   }
+  function benchCount(player) {
+  let count = 0;
+
+  for (let i = 0; i < INNINGS; i++) {
+    if (grid[player]?.[i] === "Bench") {
+      count++;
+    }
+  }
+
+  return count;
+}
 
   function benchPerInning() {
     return Math.max(players.length - 9, 0);
