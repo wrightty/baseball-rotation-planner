@@ -54,7 +54,7 @@ export default function App() {
 }
 
   function benchPerInning() {
-    return Math.max(players.length - 9, 0);
+    return Math.max(activePlayers.length - 9, 0);
   }
 
   function togglePlayer(player) {
@@ -221,10 +221,10 @@ export default function App() {
         Generate
       </button>
 
-      {players.length > 0 && (
+      {activePlayers.length > 0 && (
         <>
           <p>
-            Roster size: {players.length} <br />
+            Roster size: {activePlayers.length} <br />
             Required bench spots per inning: {benchPerInning()}
           </p>
 
