@@ -123,17 +123,25 @@ export default function App() {
   }
 
   function inningSummary(i) {
-    let p = "-", c = "-", bench = 0;
+  let pitcher = "-";
+  let catcher = "-";
 
-    players.forEach(pl => {
-      const pos = grid[pl]?.[i];
-      if (pos === "P") p = pl;
-      if (pos === "C") c = pl;
-      if (pos === "Bench") bench++;
-    });
+  let infielders = 0;
+  let outfielders = 0;
 
-    return { p, c, bench };
-  }
+  players.forEach(player => {
+    const pos = grid[player]?.[i];
+
+    if (!pos || pos === "Bench") return;
+
+    if (pos === "P") pitcher = player;
+    else if (pos === "C") catcher = player;
+    else if (["1B", "2B", "3B", "SS"].includes(pos)) infielders++;
+    else if (["LF", "CF", "RF"].includes(pos)) outfielders++;
+  });
+
+  return { pitcher, catcher, infielders, outfielders };
+}
 
   return (
     <div style={{ padding: 20 }}>
@@ -153,7 +161,10 @@ export default function App() {
 
       {players.length > 0 && (
         <>
-          <p>Bench spots per inning: {benchPerInning()}</p>
+          <p>
+            Roster size: {players.length} <br />
+            Required bench spots per inning: {benchPerInning()}
+          </p>
 
           <table border="1" cellPadding="6">
             <thead>
@@ -207,10 +218,11 @@ export default function App() {
                   const s = inningSummary(i);
 
                   return (
-                    <td key={i} style={{ background: "#f5f5f5" }}>
-                      P:{s.p}<br />
-                      C:{s.c}<br />
-                      B:{s.bench}
+                    <td key={i} style={{ background: "#f5f5f5", fontSize: "12px" }}>
+                      P: {s.pitcher}<br />
+                      C: {s.catcher}<br />
+                      IF: {s.infielders}<br />
+                      OF: {s.outfielders}
                     </td>
                   );
                 })}
