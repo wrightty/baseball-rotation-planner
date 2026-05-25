@@ -11,7 +11,8 @@ const OUTFIELD = ["LF","CF","RF"];
 
 export default function App() {
   const [rawNames, setRawNames] = useState("");
-  const [players, setPlayers] = useState([]);
+  const [allPlayers, setAllPlayers] = useState([]);
+  const [activePlayers, setActivePlayers] = useState([]);
   const [grid, setGrid] = useState({});
   const [cellIssues, setCellIssues] = useState({});
   const [finalIssues, setFinalIssues] = useState([]);
@@ -22,7 +23,8 @@ export default function App() {
       .map(n => n.trim())
       .filter(Boolean);
 
-    setPlayers(parsed);
+    setAllPlayers(parsed);
+    setActivePlayers(parsed);
 
     const newGrid = {};
     parsed.forEach(p => {
@@ -54,6 +56,14 @@ export default function App() {
   function benchPerInning() {
     return Math.max(players.length - 9, 0);
   }
+
+  function togglePlayer(player) {
+  setActivePlayers(prev =>
+    prev.includes(player)
+      ? prev.filter(p => p !== player)
+      : [...prev, player]
+  );
+}
 
   function availablePositions(player, inning) {
     const used = new Set();
@@ -218,6 +228,33 @@ export default function App() {
             Required bench spots per inning: {benchPerInning()}
           </p>
 
+
+        <div style={{ marginBottom: 20 }}>
+  <h3>Roster (click to include/exclude)</h3>
+
+  {allPlayers.map(player => {
+    const active = activePlayers.includes(player);
+
+    return (
+      <button
+        key={player}
+        onClick={() => togglePlayer(player)}
+        style={{
+          margin: 4,
+          padding: 6,
+          background: active ? "#4caf50" : "#ccc",
+          color: active ? "white" : "black",
+          border: "none",
+          cursor: "pointer"
+        }}
+      >
+        {player}
+      </button>
+    );
+  })}
+</div>
+
+
           <table border="1" cellPadding="6">
             <thead>
               <tr>
@@ -231,7 +268,7 @@ export default function App() {
             </thead>
 
             <tbody>
-              {players.map(p => (
+              {activePlayers.map(p => (
                 <tr key={p}>
                   <td><b>{p}</b></td>
 
