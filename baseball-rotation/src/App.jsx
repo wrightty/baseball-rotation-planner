@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import{db,auth}from"./firebase";
+import{doc,setDoc}from"firebase/firestore";
+import { getDoc } from "firebase/firestore";
 
 const INNINGS = 6;
 
@@ -16,6 +19,56 @@ export default function App() {
   const [grid, setGrid] = useState({});
   const [cellIssues, setCellIssues] = useState({});
   const [finalIssues, setFinalIssues] = useState([]);
+
+
+useEffect(() => {
+  async function loadRoster() {
+    const user = auth.currentUser;
+
+    if (!user) return;
+
+    try {
+      const snap = await getDoc(
+        doc(db, "users", user.uid)
+      );
+
+      if (snap.exists()) {
+        const data = snap.data();
+
+        setAllPlayers(data.roster || []);
+        setActivePlayers(data.roster || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const timer = setTimeout(loadRoster, 1000);
+
+  return () => clearTimeout(timer);
+}, []);
+
+
+
+  async function saveRoster() {
+  const user = auth.currentUser;
+
+  if (!user) return;
+
+  try {
+    await setDoc(
+      doc(db, "users", user.uid),
+      {
+        roster: allPlayers
+      }
+    );
+
+    alert("Roster saved");
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 
   function handleGenerate() {
     const parsed = rawNames
@@ -220,6 +273,10 @@ export default function App() {
       <button onClick={handleGenerate}>
         Generate
       </button>
+
+      <button onClick={saveRoster}>
+  Save Roster
+</button>
 
       {activePlayers.length > 0 && (
         <>
