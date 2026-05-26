@@ -68,7 +68,7 @@ export default function App() {
   function availablePositions(player, inning) {
     const used = new Set();
 
-    players.forEach(p => {
+    activePlayers.forEach(p => {
       if (p === player) return;
       const pos = grid[p]?.[inning];
       if (pos && pos !== "Bench") used.add(pos);
@@ -87,14 +87,14 @@ export default function App() {
     const issues = {};
     const stats = {};
 
-    players.forEach(p => {
+    activePlayers.forEach(p => {
       stats[p] = { infield: 0, outfield: 0, pitching: [] };
     });
 
     for (let i = 0; i < INNINGS; i++) {
       const used = {};
 
-      players.forEach(p => {
+      activePlayers.forEach(p => {
         const pos = grid[p]?.[i];
         if (!pos || pos === "Bench") return;
 
@@ -111,7 +111,7 @@ export default function App() {
     }
 
     // simple pitch rule
-    players.forEach(p => {
+    activePlayers.forEach(p => {
       if (stats[p].pitching.length > 2) {
         stats[p].pitching.forEach(i => {
           issues[`${p}-${i}`] = "Too many pitching innings";
@@ -120,7 +120,7 @@ export default function App() {
     });
 
     setCellIssues(issues);
-  }, [grid, players]);
+  }, [grid, activePlayers]);
 
   function playerStatus(player) {
   const issues = [];
@@ -191,7 +191,7 @@ export default function App() {
   let infielders = 0;
   let outfielders = 0;
 
-  players.forEach(player => {
+  activePlayers.forEach(player => {
     const pos = grid[player]?.[i];
 
     if (!pos || pos === "Bench") return;
