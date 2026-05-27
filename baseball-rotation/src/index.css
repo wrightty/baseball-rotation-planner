@@ -109,3 +109,231 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+body {
+  margin: 0;
+  font-family: system-ui, Arial, sans-serif;
+  background: #fafafa;
+}
+
+.app {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+textarea {
+  width: 100%;
+  max-width: 420px;
+  font-size: 16px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.buttonRow {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.appButton {
+  font-size: 16px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.rosterInfo {
+  margin-top: 14px;
+  padding: 10px;
+  background: white;
+  border: 1px solid #ddd;
+  max-width: 420px;
+}
+
+.rosterPanel {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.rosterPanel h3 {
+  margin-bottom: 4px;
+}
+
+.hint {
+  margin-top: 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.playerToggleWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.playerToggle {
+  padding: 10px 12px;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.playerToggle.active {
+  background: #4caf50;
+  color: white;
+}
+
+.playerToggle.inactive {
+  background: #ccc;
+  color: black;
+}
+
+.navButtons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+
+.navButton {
+  padding: 10px 16px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.navButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.activeNav {
+  background: #222;
+  color: white;
+}
+
+.pageSection {
+  margin-top: 10px;
+}
+
+.tableWrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 12px;
+  border: 1px solid #ddd;
+  background: white;
+}
+
+.rotationTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 950px;
+}
+
+.rotationTable th,
+.rotationTable td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+  white-space: nowrap;
+  background: white;
+}
+
+.rotationTable th {
+  background: #f1f1f1;
+}
+
+.stickyCol {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: white !important;
+  text-align: left;
+  min-width: 125px;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.12);
+}
+
+.rotationTable th.stickyCol {
+  z-index: 6;
+  background: #f1f1f1 !important;
+}
+
+.positionSelect {
+  min-width: 82px;
+  font-size: 16px;
+  padding: 8px;
+}
+
+.issueCell {
+  background: #ffcccc;
+}
+
+.statusCell {
+  min-width: 160px;
+  text-align: left;
+}
+
+.benchCountCell {
+  font-weight: bold;
+  text-align: center;
+}
+
+.summaryRow td {
+  background: #f7f7f7;
+}
+
+.summaryCell {
+  font-size: 13px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .app {
+    padding: 10px;
+  }
+
+  h1,
+  h2 {
+    font-size: 22px;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+
+  .buttonRow {
+    flex-direction: column;
+  }
+
+  .appButton {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .playerToggle {
+    font-size: 15px;
+    padding: 9px 10px;
+  }
+
+  .rotationTable {
+    min-width: 1000px;
+  }
+
+  .stickyCol {
+    min-width: 110px;
+  }
+
+  .positionSelect {
+    min-width: 86px;
+  }
+
+  .statusCell {
+    min-width: 180px;
+  }
+
+}
