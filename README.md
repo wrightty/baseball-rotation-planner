@@ -1,5 +1,4 @@
-# HDBA-11U-Fielding-Rotation-Validator
-
+# Baseball Rotation Planner
 - Clark
 - Charlie
 - Bodhi
