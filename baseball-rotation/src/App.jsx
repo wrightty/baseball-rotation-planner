@@ -2,14 +2,39 @@ import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 
-const INNINGS = 6;
-
-const POSITIONS = [
-  "P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "Bench"
-];
 
 const INFIELD = ["P", "C", "1B", "2B", "3B", "SS"];
-const OUTFIELD = ["LF", "CF", "RF"];
+
+const AGE_RULES = {
+  "9U": {
+    innings: 5,
+    maxPitchInnings: 0,
+    maxCatchInnings: 999,
+    maxInfieldInnings: 3,
+    outfieldPositions: ["LF", "LCF", "RCF", "RF"],
+    enforcePitchRules: false
+  },
+
+  "11U": {
+    innings: 6,
+    maxPitchInnings: 2,
+    maxCatchInnings: 3,
+    maxInfieldInnings: 999,
+    outfieldPositions: ["LF", "CF", "RF"],
+    enforcePitchRules: true
+  },
+
+  "13U": {
+    innings: 7,
+    maxPitchInnings: 3,
+    maxCatchInnings: 4,
+    maxInfieldInnings: 999,
+    outfieldPositions: ["LF", "CF", "RF"],
+    enforcePitchRules: true
+  }
+};
+
+
 
 export default function App() {
   const [rawNames, setRawNames] = useState("");
@@ -28,8 +53,43 @@ export default function App() {
   const [teamLoaded, setTeamLoaded] = useState(false);
   const [teamError, setTeamError] = useState("");
 
+  const INNINGS = AGE_RULES[ageLevel]?.innings || 6;
+const OUTFIELD =
+  AGE_RULES[ageLevel]?.outfieldPositions || ["LF", "CF", "RF"];
 
 
+
+  function getPositions() {
+
+    if (ageLevel === "9U") {
+      return [
+        "P",
+        "C",
+        "1B",
+        "2B",
+        "3B",
+        "SS",
+        "LF",
+        "LCF",
+        "RCF",
+        "RF",
+        "Bench"
+      ];
+    }
+
+    return [
+      "P",
+      "C",
+      "1B",
+      "2B",
+      "3B",
+      "SS",
+      "LF",
+      "CF",
+      "RF",
+      "Bench"
+    ];
+  }
 
   function cleanTeamCode(code) {
     return code.trim().toUpperCase().replace(/\s+/g, "-");
@@ -254,7 +314,7 @@ export default function App() {
 
     const current = grid[player]?.[inning];
 
-    return POSITIONS.filter(pos =>
+    return getPositions().filter(pos =>
       pos === "Bench" ||
       !used.has(pos) ||
       pos === current
@@ -300,74 +360,89 @@ export default function App() {
     setCellIssues(issues);
   }, [grid, activePlayers]);
 
-function playerStatus(player) {
-  const issues = [];
+  function playerStatus(player) {
+    const issues = [];
 
-  let infield = 0;
-  let outfield = 0;
-  let pitching = [];
-  let catching = 0;
+    let infield = 0;
+    let outfield = 0;
+    let pitching = [];
+    let catching = 0;
 
-  for (let i = 0; i < INNINGS; i++) {
-    const pos = grid[player]?.[i];
+    for (let i = 0; i < INNINGS; i++) {
+      const pos = grid[player]?.[i];
 
-    if (INFIELD.includes(pos)) infield++;
-    if (OUTFIELD.includes(pos)) outfield++;
+      if (INFIELD.includes(pos)) infield++;
+      if (OUTFIELD.includes(pos)) outfield++;
 
-    if (pos === "P") pitching.push(i);
-    if (pos === "C") catching++;
-  }
-
-  // ---- FIELDING COVERAGE ----
-  if (infield === 0) issues.push("No IF");
-  if (outfield === 0) issues.push("No OF");
-
-  // ---- CATCHER RULE ----
-  if (catching > 3) {
-    issues.push("Catch limit");
-  }
-
-  // ---- PITCHING RULES ----
-  if (pitching.length > 0) {
-    const sorted = [...pitching].sort((a, b) => a - b);
-
-    if (sorted.length > 2) {
-      issues.push("Pitch > 2 innings");
+      if (pos === "P") pitching.push(i);
+      if (pos === "C") catching++;
     }
+
+    // ---- FIELDING COVERAGE ----
+    if (infield === 0) issues.push("No IF");
+    if (outfield === 0) issues.push("No OF");
 
     if (
-      sorted.length === 2 &&
-      sorted[1] !== sorted[0] + 1
+      ageLevel === "9U" &&
+      infield > AGE_RULES["9U"].maxInfieldInnings
     ) {
-      issues.push("Pitch not consecutive");
+      issues.push("IF > 3 innings");
     }
 
-    const firstPitch = sorted[0];
-    const lastPitch = sorted[sorted.length - 1];
+    // ---- CATCHER RULE ----
+    if (catching > AGE_RULES[ageLevel].maxCatchInnings) {
+      issues.push("Catch limit");
+    }
 
-    const satAnytimeBefore =
-      grid[player]
-        ?.slice(0, firstPitch)
-        .includes("Bench");
-
-    const satImmediatelyAfter =
-      lastPitch < INNINGS - 1 &&
-      grid[player]?.[lastPitch + 1] === "Bench";
-
-    const finalInningException =
-      lastPitch === INNINGS - 1;
-
+    // ---- PITCHING RULES ----
     if (
-      !satAnytimeBefore &&
-      !satImmediatelyAfter &&
-      !finalInningException
+      AGE_RULES[ageLevel].enforcePitchRules &&
+      pitching.length > 0
     ) {
-      issues.push("Pitch violation");
-    }
-  }
+      const sorted = [...pitching].sort((a, b) => a - b);
 
-  return issues;
-}
+      if (
+        sorted.length >
+        AGE_RULES[ageLevel].maxPitchInnings
+      ) {
+        issues.push("Pitch > 2 innings");
+      }
+
+      for (let i = 1; i < sorted.length; i++) {
+
+        if (sorted[i] !== sorted[i - 1] + 1) {
+          issues.push("Pitch not consecutive");
+          break;
+        }
+
+      }
+
+      const firstPitch = sorted[0];
+      const lastPitch = sorted[sorted.length - 1];
+
+      const satAnytimeBefore =
+        grid[player]
+          ?.slice(0, firstPitch)
+          .includes("Bench");
+
+      const satImmediatelyAfter =
+        lastPitch < INNINGS - 1 &&
+        grid[player]?.[lastPitch + 1] === "Bench";
+
+      const finalInningException =
+        lastPitch === INNINGS - 1;
+
+      if (
+        !satAnytimeBefore &&
+        !satImmediatelyAfter &&
+        !finalInningException
+      ) {
+        issues.push("Pitch violation");
+      }
+    }
+
+    return issues;
+  }
 
   function inningSummary(i) {
     let pitcher = "-";
