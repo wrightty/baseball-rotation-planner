@@ -104,9 +104,9 @@ export default function App() {
 
     const trimmedGameName = newGameName.trim() || "New Game";
     if (gameNameExists(trimmedGameName)) {
-  alert("A game with that name already exists. Choose a different name.");
-  return;
-}
+      alert("A game with that name already exists. Choose a different name.");
+      return;
+    }
     const newGameId = crypto.randomUUID();
 
     const emptyGrid = {};
@@ -157,49 +157,49 @@ export default function App() {
     }
   }
 
-async function duplicateCurrentGame() {
-  if (!teamLoaded || !teamCode || !currentGameId) return;
+  async function duplicateCurrentGame() {
+    if (!teamLoaded || !teamCode || !currentGameId) return;
 
-  const trimmedGameName = newGameName.trim();
+    const trimmedGameName = newGameName.trim();
 
-if (!trimmedGameName) {
-  alert("Enter a new game name before duplicating.");
-  return;
-}
+    if (!trimmedGameName) {
+      alert("Enter a new game name before duplicating.");
+      return;
+    }
 
-if (gameNameExists(trimmedGameName)) {
-  alert("A game with that name already exists. Choose a different name.");
-  return;
-}
+    if (gameNameExists(trimmedGameName)) {
+      alert("A game with that name already exists. Choose a different name.");
+      return;
+    }
 
-  if (!trimmedGameName) {
-    alert("Enter a new game name before duplicating.");
-    return;
+    if (!trimmedGameName) {
+      alert("Enter a new game name before duplicating.");
+      return;
+    }
+
+    const newGameId = crypto.randomUUID();
+
+    try {
+      await setDoc(
+        doc(db, "teams", teamCode, "games", newGameId),
+        {
+          gameName: trimmedGameName,
+          activePlayers,
+          grid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+      );
+
+      setCurrentGameId(newGameId);
+      setGameName(trimmedGameName);
+      setNewGameName("");
+
+      await loadGames(teamCode);
+    } catch (err) {
+      console.error("Error duplicating game:", err);
+    }
   }
-
-  const newGameId = crypto.randomUUID();
-
-  try {
-    await setDoc(
-      doc(db, "teams", teamCode, "games", newGameId),
-      {
-        gameName: trimmedGameName,
-        activePlayers,
-        grid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }
-    );
-
-    setCurrentGameId(newGameId);
-    setGameName(trimmedGameName);
-    setNewGameName("");
-
-    await loadGames(teamCode);
-  } catch (err) {
-    console.error("Error duplicating game:", err);
-  }
-}
 
   async function loadGame(gameId) {
     const snap = await getDoc(
@@ -362,10 +362,10 @@ if (gameNameExists(trimmedGameName)) {
   }, []);
 
   function gameNameExists(name) {
-  return games.some(
-    game => game.gameName?.trim().toLowerCase() === name.trim().toLowerCase()
-  );
-}
+    return games.some(
+      game => game.gameName?.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+  }
 
   function clearPositions() {
 
@@ -590,39 +590,39 @@ if (gameNameExists(trimmedGameName)) {
     }
 
     for (let i = 1; i < INNINGS; i++) {
-  if (
-    grid[player]?.[i] === "Bench" &&
-    grid[player]?.[i - 1] === "Bench"
-  ) {
-    issues.push("Consecutive bench");
-    break;
-  }
-}
+      if (
+        grid[player]?.[i] === "Bench" &&
+        grid[player]?.[i - 1] === "Bench"
+      ) {
+        issues.push("Consecutive bench");
+        break;
+      }
+    }
 
-if (violatesBenchFairness(player)) {
-  issues.push("Bench imbalance");
-}
+    if (violatesBenchFairness(player)) {
+      issues.push("Bench imbalance");
+    }
 
     return issues;
   }
 
   function violatesBenchFairness(player) {
 
-  const playerBenchCount = benchCount(player);
+    const playerBenchCount = benchCount(player);
 
-  for (const otherPlayer of activePlayers) {
+    for (const otherPlayer of activePlayers) {
 
-    if (otherPlayer === player) continue;
+      if (otherPlayer === player) continue;
 
-    const otherBenchCount = benchCount(otherPlayer);
+      const otherBenchCount = benchCount(otherPlayer);
 
-    if (playerBenchCount > otherBenchCount + 1) {
-      return true;
+      if (playerBenchCount > otherBenchCount + 1) {
+        return true;
+      }
     }
-  }
 
-  return false;
-}
+    return false;
+  }
 
   function inningSummary(i) {
     let pitcher = "-";
@@ -646,6 +646,121 @@ if (violatesBenchFairness(player)) {
 
     return { pitcher, catcher, infielders, outfielders, bench };
   }
+
+
+  function getRequiredFielders() {
+    return ageLevel === "9U" ? 10 : 9;
+  }
+
+  function getBenchTarget() {
+    return Math.max(activePlayers.length - getRequiredFielders(), 0);
+  }
+
+  function countPosition(player, positions) {
+    return grid[player]?.filter(pos => positions.includes(pos)).length || 0;
+  }
+
+  function getUsedPositionsInInning(inning, draftGrid) {
+    const used = new Set();
+
+    activePlayers.forEach(player => {
+      const pos = draftGrid[player]?.[inning];
+
+      if (pos && pos !== "Bench") {
+        used.add(pos);
+      }
+    });
+
+    return used;
+  }
+
+  function getBenchCountInInning(inning, draftGrid) {
+    return activePlayers.filter(
+      player => draftGrid[player]?.[inning] === "Bench"
+    ).length;
+  }
+
+
+  function fillEmptySpots() {
+    const draftGrid = structuredClone(grid);
+
+    activePlayers.forEach(player => {
+      if (!draftGrid[player]) {
+        draftGrid[player] = Array(INNINGS).fill("");
+      }
+    });
+
+    for (let inning = 0; inning < INNINGS; inning++) {
+      const positions = getPositions().filter(pos => pos !== "Bench");
+      const usedPositions = getUsedPositionsInInning(inning, draftGrid);
+      const availablePositions = positions.filter(pos => !usedPositions.has(pos));
+
+      let benchNeeded = getBenchTarget() - getBenchCountInInning(inning, draftGrid);
+
+      const emptyPlayers = activePlayers.filter(player => {
+        return !draftGrid[player]?.[inning];
+      });
+
+      const sortedPlayers = [...emptyPlayers].sort((a, b) => {
+        const benchDiff = benchCount(a) - benchCount(b);
+        if (benchDiff !== 0) return benchDiff;
+
+        const aNeedsOF = countPosition(a, OUTFIELD) === 0 ? -1 : 0;
+        const bNeedsOF = countPosition(b, OUTFIELD) === 0 ? -1 : 0;
+        if (aNeedsOF !== bNeedsOF) return aNeedsOF - bNeedsOF;
+
+        const aNeedsIF = countPosition(a, INFIELD) === 0 ? -1 : 0;
+        const bNeedsIF = countPosition(b, INFIELD) === 0 ? -1 : 0;
+        return aNeedsIF - bNeedsIF;
+      });
+
+      // Assign bench first
+      for (const player of sortedPlayers) {
+        if (benchNeeded <= 0) break;
+
+        const satLastInning =
+          inning > 0 && draftGrid[player]?.[inning - 1] === "Bench";
+
+        if (!satLastInning) {
+          draftGrid[player][inning] = "Bench";
+          benchNeeded--;
+        }
+      }
+
+      // Fill remaining empty players with open positions
+      const stillEmpty = activePlayers.filter(player => !draftGrid[player]?.[inning]);
+
+      for (const player of stillEmpty) {
+        if (availablePositions.length === 0) break;
+
+        let chosenPosition = availablePositions[0];
+
+        if (countPosition(player, OUTFIELD) === 0) {
+          const outfieldChoice = availablePositions.find(pos =>
+            OUTFIELD.includes(pos)
+          );
+
+          if (outfieldChoice) chosenPosition = outfieldChoice;
+        } else if (countPosition(player, INFIELD) === 0) {
+          const infieldChoice = availablePositions.find(pos =>
+            INFIELD.includes(pos)
+          );
+
+          if (infieldChoice) chosenPosition = infieldChoice;
+        }
+
+        draftGrid[player][inning] = chosenPosition;
+
+        const index = availablePositions.indexOf(chosenPosition);
+        if (index !== -1) {
+          availablePositions.splice(index, 1);
+        }
+      }
+    }
+
+    setGrid(draftGrid);
+  }
+
 
   return (
     <div className="app">
@@ -811,6 +926,16 @@ if (violatesBenchFairness(player)) {
                     <strong>Roster size:</strong> {activePlayers.length}
                     <br />
                     <strong>Required bench spots per inning:</strong> {benchPerInning()}
+                  </div>
+
+                  <button className="appButton" onClick={fillEmptySpots}>
+                    Fill Empty Spots
+                  </button>
+
+                  <div className="buttonRow">
+                    <button className="appButton" onClick={clearPositions}>
+                      Clear Positions
+                    </button>
                   </div>
 
                   {activePlayers.length > 0 && (
