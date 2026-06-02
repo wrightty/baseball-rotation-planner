@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 
 
@@ -44,6 +44,9 @@ export default function App() {
   const [cellIssues, setCellIssues] = useState({});
   const [finalIssues, setFinalIssues] = useState([]);
   const [page, setPage] = useState("roster");
+  const [games, setGames] = useState([]);
+  const [currentGameId, setCurrentGameId] = useState("");
+  const [gameName, setGameName] = useState("");
 
   const AGE_LEVELS = ["9U", "11U", "13U"];
 
@@ -54,8 +57,8 @@ export default function App() {
   const [teamError, setTeamError] = useState("");
 
   const INNINGS = AGE_RULES[ageLevel]?.innings || 6;
-const OUTFIELD =
-  AGE_RULES[ageLevel]?.outfieldPositions || ["LF", "CF", "RF"];
+  const OUTFIELD =
+    AGE_RULES[ageLevel]?.outfieldPositions || ["LF", "CF", "RF"];
 
 
 
@@ -94,6 +97,94 @@ const OUTFIELD =
   function cleanTeamCode(code) {
     return code.trim().toUpperCase().replace(/\s+/g, "-");
   }
+
+ async function createGame() {
+  if (!teamLoaded || !teamCode) return;
+
+  const trimmedGameName = gameName.trim() || "New Game";
+  const newGameId = crypto.randomUUID();
+
+  const emptyGrid = {};
+
+  activePlayers.forEach(player => {
+    emptyGrid[player] = Array(INNINGS).fill("");
+  });
+
+  try {
+    await setDoc(
+      doc(db, "teams", teamCode, "games", newGameId),
+      {
+        gameName: trimmedGameName,
+        activePlayers,
+        grid: emptyGrid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+    );
+
+    setCurrentGameId(newGameId);
+    setGrid(emptyGrid);
+    setGameName(trimmedGameName);
+
+    await loadGames();
+  } catch (err) {
+    console.error("Error creating game:", err);
+  }
+}
+
+async function loadGames(code = teamCode) {
+  if (!code) return;
+
+  try {
+    const snap = await getDocs(
+      collection(db, "teams", code, "games")
+    );
+
+    const loadedGames = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
+    setGames(loadedGames);
+  } catch (err) {
+    console.error("Error loading games:", err);
+  }
+}
+
+  async function loadGame(gameId) {
+    const snap = await getDoc(
+      doc(db, "teams", teamCode, "games", gameId)
+    );
+
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+
+    setCurrentGameId(gameId);
+    setGameName(data.gameName || "");
+    setActivePlayers(data.activePlayers || allPlayers);
+    setGrid(data.grid || {});
+  }
+
+  async function saveGameData() {
+    if (!teamLoaded || !teamCode || !currentGameId) return;
+
+    await setDoc(
+      doc(db, "teams", teamCode, "games", currentGameId),
+      {
+        gameName,
+        activePlayers,
+        grid,
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+  }
+
+  useEffect(() => {
+    if (!currentGameId) return;
+    saveGameData();
+  }, [activePlayers, grid, gameName, currentGameId]);
 
   async function createTeam() {
     const cleanedCode = cleanTeamCode(teamCode);
@@ -172,10 +263,12 @@ const OUTFIELD =
       setGrid(data.grid || {});
       setRawNames(loadedRoster.join("\n"));
       setTeamLoaded(true);
+
       setTeamError("");
       setPage(loadedRoster.length > 0 ? "rotation" : "roster");
 
       localStorage.setItem("teamCode", cleanedCode);
+      await loadGames(cleanedCode);
     } catch (err) {
       console.error(err);
       setTeamError("Could not load team.");
@@ -560,136 +653,174 @@ const OUTFIELD =
           {page === "rotation" && allPlayers.length > 0 && (
             <div className="pageSection">
 
-              <div className="buttonRow">
-                <button className="appButton" onClick={clearPositions}>
-                  Clear Positions
+
+              <div className="gamePanel">
+                <h3>Games</h3>
+
+                <input
+                  value={gameName}
+                  onChange={e => setGameName(e.target.value)}
+                  placeholder="Game name"
+                />
+
+
+
+                <button className="appButton" onClick={createGame}>
+                  Create New Game
                 </button>
+
+                <select
+                  value={currentGameId}
+                  onChange={e => loadGame(e.target.value)}
+                >
+                  <option value="">Select saved game</option>
+                  {games.map(game => (
+                    <option key={game.id} value={game.id}>
+                      {game.gameName || "Unnamed Game"}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="rosterPanel">
-                <h3>Roster</h3>
-                <p className="hint">Tap a player to include/exclude them.</p>
 
-                <div className="playerToggleWrap">
-                  {allPlayers.map(player => {
-                    const active = activePlayers.includes(player);
+              {currentGameId ? (
+                <>
+                  <div className="buttonRow">
+                    <button className="appButton" onClick={clearPositions}>
+                      Clear Positions
+                    </button>
+                  </div>
 
-                    return (
-                      <button
-                        key={player}
-                        onClick={() => togglePlayer(player)}
-                        className={active ? "playerToggle active" : "playerToggle inactive"}
-                      >
-                        {player}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                  <div className="rosterPanel">
+                    <h3>Roster</h3>
+                    <p className="hint">Tap a player to include/exclude them.</p>
 
-              <div className="rosterInfo">
-                <strong>Roster size:</strong> {activePlayers.length}
-                <br />
-                <strong>Required bench spots per inning:</strong> {benchPerInning()}
-              </div>
+                    <div className="playerToggleWrap">
+                      {allPlayers.map(player => {
+                        const active = activePlayers.includes(player);
 
-              {activePlayers.length > 0 && (
-                <div className="tableWrap">
-                  <table className="rotationTable">
-                    <thead>
-                      <tr>
-                        <th className="stickyCol">Player</th>
-                        {Array.from({ length: INNINGS }).map((_, i) => (
-                          <th key={i}>Inning {i + 1}</th>
-                        ))}
-                        <th>Status</th>
-                        <th>Bench</th>
-                      </tr>
-                    </thead>
+                        return (
+                          <button
+                            key={player}
+                            onClick={() => togglePlayer(player)}
+                            className={active ? "playerToggle active" : "playerToggle inactive"}
+                          >
+                            {player}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                    <tbody>
-                      {activePlayers.map(p => (
-                        <tr key={p}>
-                          <td className="stickyCol">
-                            <b>{p}</b>
-                          </td>
+                  <div className="rosterInfo">
+                    <strong>Roster size:</strong> {activePlayers.length}
+                    <br />
+                    <strong>Required bench spots per inning:</strong> {benchPerInning()}
+                  </div>
 
-                          {Array.from({ length: INNINGS }).map((_, i) => {
-                            const val = grid[p]?.[i] || "";
-                            const issue = cellIssues[`${p}-${i}`];
+                  {activePlayers.length > 0 && (
+                    <div className="tableWrap">
+                      <table className="rotationTable">
+                        <thead>
+                          <tr>
+                            <th className="stickyCol">Player</th>
+                            {Array.from({ length: INNINGS }).map((_, i) => (
+                              <th key={i}>Inning {i + 1}</th>
+                            ))}
+                            <th>Status</th>
+                            <th>Bench</th>
+                          </tr>
+                        </thead>
 
-                            return (
-                              <td
-                                key={i}
-                                className={issue ? "issueCell" : ""}
-                              >
-                                <select
-                                  className="positionSelect"
-                                  value={val}
-                                  onChange={e => updateCell(p, i, e.target.value)}
-                                >
-                                  <option value="">-</option>
-                                  {availablePositions(p, i).map(pos => (
-                                    <option key={pos} value={pos}>
-                                      {pos}
-                                    </option>
-                                  ))}
-                                </select>
+                        <tbody>
+                          {activePlayers.map(p => (
+                            <tr key={p}>
+                              <td className="stickyCol">
+                                <b>{p}</b>
                               </td>
-                            );
-                          })}
 
-                          <td className="statusCell">
-                            {(() => {
-                              const issues = playerStatus(p);
+                              {Array.from({ length: INNINGS }).map((_, i) => {
+                                const val = grid[p]?.[i] || "";
+                                const issue = cellIssues[`${p}-${i}`];
 
-                              if (issues.length === 0) return "✅";
+                                return (
+                                  <td
+                                    key={i}
+                                    className={issue ? "issueCell" : ""}
+                                  >
+                                    <select
+                                      className="positionSelect"
+                                      value={val}
+                                      onChange={e => updateCell(p, i, e.target.value)}
+                                    >
+                                      <option value="">-</option>
+                                      {availablePositions(p, i).map(pos => (
+                                        <option key={pos} value={pos}>
+                                          {pos}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                );
+                              })}
 
-                              const priority =
-                                issues.includes("Pitch violation")
-                                  ? "⚠️ Pitch violation"
-                                  : "⚠️ " + issues.join(", ");
+                              <td className="statusCell">
+                                {(() => {
+                                  const issues = playerStatus(p);
 
-                              return priority;
-                            })()}
-                          </td>
+                                  if (issues.length === 0) return "✅";
 
-                          <td className="benchCountCell">
-                            {benchCount(p)}
-                          </td>
-                        </tr>
-                      ))}
+                                  const priority =
+                                    issues.includes("Pitch violation")
+                                      ? "⚠️ Pitch violation"
+                                      : "⚠️ " + issues.join(", ");
 
-                      <tr className="summaryRow">
-                        <td className="stickyCol">
-                          <b>Summary</b>
-                        </td>
+                                  return priority;
+                                })()}
+                              </td>
 
-                        {Array.from({ length: INNINGS }).map((_, i) => {
-                          const s = inningSummary(i);
+                              <td className="benchCountCell">
+                                {benchCount(p)}
+                              </td>
+                            </tr>
+                          ))}
 
-                          return (
-                            <td key={i} className="summaryCell">
-                              <div><strong>P:</strong> {s.pitcher}</div>
-                              <div><strong>C:</strong> {s.catcher}</div>
-                              <div><strong>IF:</strong> {s.infielders}</div>
-                              <div><strong>OF:</strong> {s.outfielders}</div>
-                              <div><strong>Bench:</strong> {s.bench}</div>
+                          <tr className="summaryRow">
+                            <td className="stickyCol">
+                              <b>Summary</b>
                             </td>
-                          );
-                        })}
 
-                        <td>-</td>
-                        <td>-</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                            {Array.from({ length: INNINGS }).map((_, i) => {
+                              const s = inningSummary(i);
 
-              {activePlayers.length === 0 && (
+                              return (
+                                <td key={i} className="summaryCell">
+                                  <div><strong>P:</strong> {s.pitcher}</div>
+                                  <div><strong>C:</strong> {s.catcher}</div>
+                                  <div><strong>IF:</strong> {s.infielders}</div>
+                                  <div><strong>OF:</strong> {s.outfielders}</div>
+                                  <div><strong>Bench:</strong> {s.bench}</div>
+                                </td>
+                              );
+                            })}
+
+                            <td>-</td>
+                            <td>-</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {activePlayers.length === 0 && (
+                    <p className="hint">
+                      No active players selected. Tap players above to include them for this game.
+                    </p>
+                  )}
+                </>
+              ) : (
                 <p className="hint">
-                  No active players selected. Tap players above to include them for this game.
+                  Create or select a game to begin editing the rotation.
                 </p>
               )}
 
@@ -699,7 +830,6 @@ const OUTFIELD =
 
         </>
       )}
-
     </div>
   );
 }
