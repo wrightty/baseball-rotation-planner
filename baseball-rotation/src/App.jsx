@@ -55,6 +55,7 @@ export default function App() {
   const [ageLevel, setAgeLevel] = useState("11U");
   const [teamLoaded, setTeamLoaded] = useState(false);
   const [teamError, setTeamError] = useState("");
+  const [newGameName, setNewGameName] = useState("");
 
   const INNINGS = AGE_RULES[ageLevel]?.innings || 6;
   const OUTFIELD =
@@ -98,17 +99,85 @@ export default function App() {
     return code.trim().toUpperCase().replace(/\s+/g, "-");
   }
 
- async function createGame() {
-  if (!teamLoaded || !teamCode) return;
+  async function createGame() {
+    if (!teamLoaded || !teamCode) return;
 
-  const trimmedGameName = gameName.trim() || "New Game";
+    const trimmedGameName = newGameName.trim() || "New Game";
+    if (gameNameExists(trimmedGameName)) {
+  alert("A game with that name already exists. Choose a different name.");
+  return;
+}
+    const newGameId = crypto.randomUUID();
+
+    const emptyGrid = {};
+
+    activePlayers.forEach(player => {
+      emptyGrid[player] = Array(INNINGS).fill("");
+    });
+
+    try {
+      await setDoc(
+        doc(db, "teams", teamCode, "games", newGameId),
+        {
+          gameName: trimmedGameName,
+          activePlayers,
+          grid: emptyGrid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }
+      );
+
+      setCurrentGameId(newGameId);
+      setGrid(emptyGrid);
+      setGameName(trimmedGameName);
+      setNewGameName("");
+
+      await loadGames();
+    } catch (err) {
+      console.error("Error creating game:", err);
+    }
+  }
+
+  async function loadGames(code = teamCode) {
+    if (!code) return;
+
+    try {
+      const snap = await getDocs(
+        collection(db, "teams", code, "games")
+      );
+
+      const loadedGames = snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      setGames(loadedGames);
+    } catch (err) {
+      console.error("Error loading games:", err);
+    }
+  }
+
+async function duplicateCurrentGame() {
+  if (!teamLoaded || !teamCode || !currentGameId) return;
+
+  const trimmedGameName = newGameName.trim();
+
+if (!trimmedGameName) {
+  alert("Enter a new game name before duplicating.");
+  return;
+}
+
+if (gameNameExists(trimmedGameName)) {
+  alert("A game with that name already exists. Choose a different name.");
+  return;
+}
+
+  if (!trimmedGameName) {
+    alert("Enter a new game name before duplicating.");
+    return;
+  }
+
   const newGameId = crypto.randomUUID();
-
-  const emptyGrid = {};
-
-  activePlayers.forEach(player => {
-    emptyGrid[player] = Array(INNINGS).fill("");
-  });
 
   try {
     await setDoc(
@@ -116,38 +185,19 @@ export default function App() {
       {
         gameName: trimmedGameName,
         activePlayers,
-        grid: emptyGrid,
+        grid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       }
     );
 
     setCurrentGameId(newGameId);
-    setGrid(emptyGrid);
     setGameName(trimmedGameName);
+    setNewGameName("");
 
-    await loadGames();
+    await loadGames(teamCode);
   } catch (err) {
-    console.error("Error creating game:", err);
-  }
-}
-
-async function loadGames(code = teamCode) {
-  if (!code) return;
-
-  try {
-    const snap = await getDocs(
-      collection(db, "teams", code, "games")
-    );
-
-    const loadedGames = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data()
-    }));
-
-    setGames(loadedGames);
-  } catch (err) {
-    console.error("Error loading games:", err);
+    console.error("Error duplicating game:", err);
   }
 }
 
@@ -311,6 +361,11 @@ async function loadGames(code = teamCode) {
     }
   }, []);
 
+  function gameNameExists(name) {
+  return games.some(
+    game => game.gameName?.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+}
 
   function clearPositions() {
 
@@ -534,8 +589,40 @@ async function loadGames(code = teamCode) {
       }
     }
 
+    for (let i = 1; i < INNINGS; i++) {
+  if (
+    grid[player]?.[i] === "Bench" &&
+    grid[player]?.[i - 1] === "Bench"
+  ) {
+    issues.push("Consecutive bench");
+    break;
+  }
+}
+
+if (violatesBenchFairness(player)) {
+  issues.push("Bench imbalance");
+}
+
     return issues;
   }
+
+  function violatesBenchFairness(player) {
+
+  const playerBenchCount = benchCount(player);
+
+  for (const otherPlayer of activePlayers) {
+
+    if (otherPlayer === player) continue;
+
+    const otherBenchCount = benchCount(otherPlayer);
+
+    if (playerBenchCount > otherBenchCount + 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
   function inningSummary(i) {
     let pitcher = "-";
@@ -658,15 +745,23 @@ async function loadGames(code = teamCode) {
                 <h3>Games</h3>
 
                 <input
-                  value={gameName}
-                  onChange={e => setGameName(e.target.value)}
-                  placeholder="Game name"
+                  value={newGameName}
+                  onChange={e => setNewGameName(e.target.value)}
+                  placeholder="New game name"
                 />
 
 
 
                 <button className="appButton" onClick={createGame}>
-                  Create New Game
+                  Create Blank Game
+                </button>
+
+                <button
+                  className="appButton"
+                  onClick={duplicateCurrentGame}
+                  disabled={!currentGameId}
+                >
+                  Duplicate Current Game
                 </button>
 
                 <select
