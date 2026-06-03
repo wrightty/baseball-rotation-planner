@@ -1,7 +1,19 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
+import {
+  DndContext,
+  closestCenter
+} from "@dnd-kit/core";
 
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
 
 const INFIELD = ["P", "C", "1B", "2B", "3B", "SS"];
 
@@ -34,6 +46,50 @@ const AGE_RULES = {
   }
 };
 
+function SortableRow({ player, index, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition
+  } = useSortable({ id: player });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style}>
+
+  <td className="dragColumn">
+    <button
+      type="button"
+      className="dragHandle"
+      {...attributes}
+      {...listeners}
+    >
+      ☰
+    </button>
+  </td>
+
+  <td className="stickyCol">
+    <div className="playerLabel">
+      <span className="battingNumber">
+        {index + 1}.
+      </span>
+
+      <span className="playerNameText">
+        {player}
+      </span>
+    </div>
+  </td>
+
+  {children}
+</tr>
+  );
+}
 
 
 export default function App() {
@@ -62,6 +118,16 @@ export default function App() {
     AGE_RULES[ageLevel]?.outfieldPositions || ["LF", "CF", "RF"];
 
 
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = activePlayers.indexOf(active.id);
+    const newIndex = activePlayers.indexOf(over.id);
+
+    setActivePlayers(arrayMove(activePlayers, oldIndex, newIndex));
+  }
 
   function getPositions() {
 
@@ -895,11 +961,6 @@ export default function App() {
 
               {currentGameId ? (
                 <>
-                  <div className="buttonRow">
-                    <button className="appButton" onClick={clearPositions}>
-                      Clear Positions
-                    </button>
-                  </div>
 
                   <div className="rosterPanel">
                     <h3>Roster</h3>
@@ -922,130 +983,141 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="rosterInfo">
-                    <strong>Roster size:</strong> {activePlayers.length}
-                    <br />
-                    <strong>Required bench spots per inning:</strong> {benchPerInning()}
-                  </div>
-
-                  <button className="appButton" onClick={fillEmptySpots}>
-                    Fill Empty Spots
-                  </button>
-
-                  <div className="buttonRow">
-                    <button className="appButton" onClick={clearPositions}>
-                      Clear Positions
-                    </button>
-                  </div>
-
-                  {activePlayers.length > 0 && (
-                    <div className="tableWrap">
-                      <table className="rotationTable">
-                        <thead>
-                          <tr>
-                            <th className="stickyCol">Player</th>
-                            {Array.from({ length: INNINGS }).map((_, i) => (
-                              <th key={i}>Inning {i + 1}</th>
-                            ))}
-                            <th>Status</th>
-                            <th>Bench</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {activePlayers.map(p => (
-                            <tr key={p}>
-                              <td className="stickyCol">
-                                <b>{p}</b>
-                              </td>
-
-                              {Array.from({ length: INNINGS }).map((_, i) => {
-                                const val = grid[p]?.[i] || "";
-                                const issue = cellIssues[`${p}-${i}`];
-
-                                return (
-                                  <td
-                                    key={i}
-                                    className={issue ? "issueCell" : ""}
-                                  >
-                                    <select
-                                      className="positionSelect"
-                                      value={val}
-                                      onChange={e => updateCell(p, i, e.target.value)}
-                                    >
-                                      <option value="">-</option>
-                                      {availablePositions(p, i).map(pos => (
-                                        <option key={pos} value={pos}>
-                                          {pos}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </td>
-                                );
-                              })}
-
-                              <td className="statusCell">
-                                {(() => {
-                                  const issues = playerStatus(p);
-
-                                  if (issues.length === 0) return "✅";
-
-                                  const priority =
-                                    issues.includes("Pitch violation")
-                                      ? "⚠️ Pitch violation"
-                                      : "⚠️ " + issues.join(", ");
-
-                                  return priority;
-                                })()}
-                              </td>
-
-                              <td className="benchCountCell">
-                                {benchCount(p)}
-                              </td>
-                            </tr>
-                          ))}
-
-                          <tr className="summaryRow">
-                            <td className="stickyCol">
-                              <b>Summary</b>
-                            </td>
-
-                            {Array.from({ length: INNINGS }).map((_, i) => {
-                              const s = inningSummary(i);
-
-                              return (
-                                <td key={i} className="summaryCell">
-                                  <div><strong>P:</strong> {s.pitcher}</div>
-                                  <div><strong>C:</strong> {s.catcher}</div>
-                                  <div><strong>IF:</strong> {s.infielders}</div>
-                                  <div><strong>OF:</strong> {s.outfielders}</div>
-                                  <div><strong>Bench:</strong> {s.bench}</div>
-                                </td>
-                              );
-                            })}
-
-                            <td>-</td>
-                            <td>-</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  <div className="rosterSummaryRow">
+                    <div className="rosterInfo">
+                      <strong>Roster size:</strong> {activePlayers.length}
+                      <br />
+                      <strong>Required bench spots per inning:</strong> {benchPerInning()}
                     </div>
-                  )}
 
-                  {activePlayers.length === 0 && (
-                    <p className="hint">
-                      No active players selected. Tap players above to include them for this game.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="hint">
-                  Create or select a game to begin editing the rotation.
-                </p>
-              )}
+                    <div className="buttonRow">
+                      <button className="appButton" onClick={clearPositions}>
+                        Clear Positions
+                      </button>
 
-            </div>
-          )}
+                      <button className="appButton" onClick={fillEmptySpots}>
+                        Fill Empty Spots
+                      </button>
+                    </div>
+                  </div>
+
+             {activePlayers.length > 0 && (
+  <div className="tableWrap">
+    <table className="rotationTable">
+      <thead>
+        <tr>
+         <th className="dragColumn"></th>
+<th className="stickyCol">Player</th>
+          {Array.from({ length: INNINGS }).map((_, i) => (
+            <th key={i}>Inning {i + 1}</th>
+          ))}
+          <th>Status</th>
+          <th>Bench</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <DndContext
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={activePlayers}
+            strategy={verticalListSortingStrategy}
+          >
+            {activePlayers.map((p, index) => (
+              <SortableRow key={p} player={p} index={index}>
+                {Array.from({ length: INNINGS }).map((_, i) => {
+                  const val = grid[p]?.[i] || "";
+                  const issue = cellIssues[`${p}-${i}`];
+
+                  return (
+                    <td
+                      key={i}
+                      className={issue ? "issueCell" : ""}
+                    >
+                      <select
+                        className="positionSelect"
+                        value={val}
+                        onChange={e => updateCell(p, i, e.target.value)}
+                      >
+                        <option value="">-</option>
+                        {availablePositions(p, i).map(pos => (
+                          <option key={pos} value={pos}>
+                            {pos}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  );
+                })}
+
+                <td className="statusCell">
+                  {(() => {
+                    const issues = playerStatus(p);
+
+                    if (issues.length === 0) return "✅";
+
+                    const priority =
+                      issues.includes("Pitch violation")
+                        ? "⚠️ Pitch violation"
+                        : "⚠️ " + issues.join(", ");
+
+                    return priority;
+                  })()}
+                </td>
+
+                <td className="benchCountCell">
+                  {benchCount(p)}
+                </td>
+              </SortableRow>
+            ))}
+          </SortableContext>
+        </DndContext>
+
+        <tr className="summaryRow">
+          <td className="dragColumn"></td>
+
+<td className="stickyCol">
+  <b>Summary</b>
+</td>
+
+          {Array.from({ length: INNINGS }).map((_, i) => {
+            const s = inningSummary(i);
+
+            return (
+              <td key={i} className="summaryCell">
+                <div><strong>P:</strong> {s.pitcher}</div>
+                <div><strong>C:</strong> {s.catcher}</div>
+                <div><strong>IF:</strong> {s.infielders}</div>
+                <div><strong>OF:</strong> {s.outfielders}</div>
+                <div><strong>Bench:</strong> {s.bench}</div>
+              </td>
+            );
+          })}
+
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+)}
+
+{activePlayers.length === 0 && (
+  <p className="hint">
+    No active players selected. Tap players above to include them for this game.
+  </p>
+)}
+</>
+) : (
+  <p className="hint">
+    Create or select a game to begin editing the rotation.
+  </p>
+)}
+
+</div>
+)}
 
 
         </>
