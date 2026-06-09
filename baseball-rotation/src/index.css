@@ -337,3 +337,48 @@ textarea {
   }
 
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .printableRotation,
+  .printableRotation * {
+    visibility: visible;
+  }
+
+  .printableRotation {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .printableRotation th,
+  .printableRotation td {
+    border: 1px solid black;
+    padding: 4px;
+    color: black !important;
+  }
+
+  .dragColumn,
+  .dragHandle,
+  .statusCell {
+    display: none !important;
+  }
+
+  .stickyCol {
+    position: static !important;
+  }
+
+  select {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: black;
+    font-size: 12px;
+  }
+}

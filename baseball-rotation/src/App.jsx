@@ -74,17 +74,37 @@ function SortableRow({ player, index, children }) {
     </button>
   </td>
 
-  <td className="stickyCol">
-    <div className="playerLabel">
-      <span className="battingNumber">
-        {index + 1}.
-      </span>
+<td className="stickyCol">
+  <div
+    className="playerLabel"
+    style={{
+      color: "black",
+      fontWeight: "bold",
+      display: "flex",
+      alignItems: "center"
+    }}
+  >
+    <span
+      className="battingNumber"
+      style={{
+        color: "black",
+        fontWeight: "bold"
+      }}
+    >
+      {index + 1}.
+    </span>
 
-      <span className="playerNameText">
-        {player}
-      </span>
-    </div>
-  </td>
+    <span
+      className="playerNameText"
+      style={{
+        color: "black",
+        fontWeight: "bold"
+      }}
+    >
+      {player}
+    </span>
+  </div>
+</td>
 
   {children}
 </tr>
@@ -487,6 +507,10 @@ export default function App() {
     setPage("rotation");
 
   }
+
+  function printRotation() {
+  window.print();
+}
 
   function updateCell(player, inning, value) {
     const copy = { ...grid };
@@ -983,27 +1007,52 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="rosterSummaryRow">
-                    <div className="rosterInfo">
-                      <strong>Roster size:</strong> {activePlayers.length}
-                      <br />
-                      <strong>Required bench spots per inning:</strong> {benchPerInning()}
-                    </div>
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "20px",
+    margin: "20px 0",
+    flexWrap: "wrap"
+  }}
+>
+  <div
+    style={{
+      border: "1px solid #ddd",
+      padding: "12px 24px",
+      textAlign: "center",
+      whiteSpace: "nowrap"
+    }}
+  >
+    <strong>Roster size:</strong> {activePlayers.length}
+    <br />
+    <strong>Required bench spots per inning:</strong> {benchPerInning()}
+  </div>
 
-                    <div className="buttonRow">
-                      <button className="appButton" onClick={clearPositions}>
-                        Clear Positions
-                      </button>
+  <div
+    style={{
+      display: "flex",
+      gap: "12px"
+    }}
+  >
+    <button className="appButton" onClick={clearPositions}>
+      Clear Positions
+    </button>
 
-                      <button className="appButton" onClick={fillEmptySpots}>
-                        Fill Empty Spots
-                      </button>
-                    </div>
-                  </div>
+    <button className="appButton" onClick={fillEmptySpots}>
+      Fill Empty Spots
+    </button>
+
+    <button className="appButton" onClick={printRotation}>
+  Print / Export
+</button>
+  </div>
+</div>
 
              {activePlayers.length > 0 && (
   <div className="tableWrap">
-    <table className="rotationTable">
+    <table className="rotationTable printableRotation">
       <thead>
         <tr>
          <th className="dragColumn"></th>
