@@ -1124,6 +1124,31 @@ export default function App() {
           </SortableContext>
         </DndContext>
 
+        <tr className="guestRow">
+  <td className="dragColumn"></td>
+
+  <td className="stickyCol">
+    <b>Guest</b>
+  </td>
+
+  {Array.from({ length: INNINGS }).map((_, i) => (
+    <td key={i}>
+      <select className="positionSelect">
+        <option value="">-</option>
+
+        {getPositions().map(pos => (
+          <option key={pos} value={pos}>
+            {pos}
+          </option>
+        ))}
+      </select>
+    </td>
+  ))}
+
+  <td>-</td>
+  <td>-</td>
+</tr>
+
         <tr className="summaryRow">
           <td className="dragColumn"></td>
 
