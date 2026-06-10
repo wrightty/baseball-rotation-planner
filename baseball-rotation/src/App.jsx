@@ -512,11 +512,20 @@ export default function App() {
   window.print();
 }
 
-  function updateCell(player, inning, value) {
-    const copy = { ...grid };
-    copy[player][inning] = value;
-    setGrid(copy);
-  }
+function updateCell(player, inning, value) {
+  setGrid(prev => {
+    const updated = { ...prev };
+
+    if (!updated[player]) {
+      updated[player] = Array(INNINGS).fill("");
+    }
+
+    updated[player][inning] = value;
+
+    return updated;
+  });
+}
+
   function benchCount(player) {
     let count = 0;
 
@@ -533,13 +542,30 @@ export default function App() {
     return Math.max(activePlayers.length - 9, 0);
   }
 
-  function togglePlayer(player) {
-    setActivePlayers(prev =>
-      prev.includes(player)
-        ? prev.filter(p => p !== player)
-        : [...prev, player]
-    );
+  function howManySits(){
+    return ((benchPerInning() * 6) / activePlayers.length );
   }
+function togglePlayer(player) {
+  setActivePlayers(prev => {
+    const isActive = prev.includes(player);
+
+    if (isActive) {
+      return prev.filter(p => p !== player);
+    }
+
+    setGrid(prevGrid => {
+      const updated = { ...prevGrid };
+
+      if (!updated[player]) {
+        updated[player] = Array(INNINGS).fill("");
+      }
+
+      return updated;
+    });
+
+    return [...prev, player];
+  });
+}
 
   function availablePositions(player, inning) {
     const used = new Set();
@@ -1028,6 +1054,8 @@ export default function App() {
     <strong>Roster size:</strong> {activePlayers.length}
     <br />
     <strong>Required bench spots per inning:</strong> {benchPerInning()}
+    <br />
+    <strong>Total sits per player:</strong> {howManySits()}
   </div>
 
   <div
@@ -1128,7 +1156,7 @@ export default function App() {
   <td className="dragColumn"></td>
 
   <td className="stickyCol">
-    <b>Guest</b>
+    <b>    </b>
   </td>
 
   {Array.from({ length: INNINGS }).map((_, i) => (
